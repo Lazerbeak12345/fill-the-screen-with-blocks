@@ -1,0 +1,718 @@
+<!doctype html>
+<html>
+	<head>
+		<!--Declarations and types (media objs and favicons)-->
+		<title>Fill the Screen with Blocks!</title>
+		<!--CSS files-->
+		<style>
+			body{
+				background-color:black;
+				overflow:hidden;/**/
+				font-family:sans-serif;
+			}
+			.sprite{
+				position:absolute;
+				/*font-size: 10px;*/
+				width:3.7em;
+				height:3.7em;
+			}
+			.outline.sprite {
+				outline:none;
+				border:solid .3em;
+				border-radius:.9em;
+			}
+			.filled.sprite{
+				border-radius:.7em;
+			}
+			.outline.sprite{
+				background:transparent;
+			}
+			/*.filled.sprite{
+				border-width:.05em;
+			}*/
+			.grid.sprite{
+				outline:none;
+				border-width:.1em;
+				border-color:black;
+				border-radius:100%;
+				background:dimgrey;
+			}
+			#grid,
+			#playField,
+			#hoverField{
+				width:100%;
+				height:100%;
+			}
+			#playField{
+				position: absolute;
+				top: 0px;
+			}
+			.lblock{
+				border:solid #39ff14 .05em;
+				background:#39ff14;
+				box-shadow:0 0 .4em #39ff14;
+			}
+			.plusblock{
+				border:solid #00ffff .05em;
+				background:#00ffff;
+				box-shadow:0 0 .4em #00ffff;
+			}
+			.lineblock{
+				border:solid #ff00ff .05em;
+				background:#ff00ff;
+				box-shadow:0 0 .4em #ff00ff;
+			}
+			.cblock{
+				border:solid #ffff33 .05em;
+				background:#ffff33;
+				box-shadow:0 0 .4em #ffff33;
+			}
+			.sblock{
+				border:solid #ff0000 .05em;
+				background:#ff0000;
+				box-shadow:0 0 .4em #ff0000;
+			}
+			.rblock{
+				border:solid teal .05em;
+				background:teal;
+				box-shadow:0 0 .4em teal;
+			}
+			.dotblock{
+				border:solid #adadad .05em;
+				background:#adadad;
+				box-shadow:0 0 .4em #adadad;
+			}
+			#ui{
+				color:white;
+				position:absolute;
+			}
+			#nextblock{
+				border:.25em solid;
+				border-radius:1em;
+			}
+			button{
+				border:none;
+				backgound:grey font bold and border round with glow
+			}
+		</style>
+	</head>
+	<body>
+		<!--Content-->
+		<div>
+			<div id="grid"></div>
+			<div id="playField"></div>
+		</div>
+		<div id="ui"> 
+			<!--h1 style="text-align:center; margin:unset;">Fill The Screen with blocks!</h1><!---->
+			<div style="margin-left:0em" id="nextblock"></div>
+			&nbsp;&nbsp;&nbsp;Sharp Mode:<button onclick ="$(this).text(rounded?'On':'Off').;rounded=!rounded;">Off</button><br />
+			Level:<span id="lvldisp">1</span>
+		</div>
+		<audio id="slide" src='Sounds/slide.wav'></audio>
+		<audio id="click" src='Sounds/click.wav'></audio>
+		<audio id="dropfail" src='Sounds/dropfail.wav'></audio>
+		<audio id="restart" src='Sounds/restart.wav'></audio>
+		<audio id="rotate" src='Sounds/rotate.wav'></audio>
+		<!--Script-->
+		<script src="jquery-3.3.1.js"></script>
+		<script src="jquery-ui-1.12.1.js"></script>
+		<script src="gamepad.js-master/gamepad.js"></script>
+		<script src="gremlins.js-master/gremlins.min.js"></script>
+		<script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/374756/zingtouch-1.0.0.min.js"></script>
+		<!--<script src="Midijs/MIDI.js/"></script>-->
+		<script>
+		"use strict";
+		var map=[],
+			oldMap=[],//during block placement 
+			levels=[//".",
+				"r.",
+				"|.L.",
+				"+.F7r",
+				"s..L&_.",
+				"__r.r_l...uu|",
+				"s__l_Dr7_r.|r",
+				"|S..S&|l|rr_||_l.",
+				"s..S.||Dr7s..||..|7r.n.",
+				"nu7.llll.l.ll..l_llllll.l.llll",
+				"|||lr|||||L..|||||L.|||||L|||||L||||..||||",
+				"++7+7+77++++++++.rl.r.r7.r.r.Lr.r.r.r.lr.r.r.r",
+			],chunks={
+				"L":{
+					color:"#39ff14",
+					clas:"lblock",
+					clockwise:"&",
+					counterclockwise:"l",
+					build:[
+						"# ",
+						"# ",
+						"##"
+					],
+				},
+				"7":{
+					color:"#39ff14",
+					clas:"lblock",
+					clockwise:"l",
+					counterclockwise:"&",
+					build:[
+						"##",
+						" #",
+						" #"
+					],
+				},
+				"l":{
+					color:"#39ff14",
+					clas:"lblock",
+					clockwise:"L",
+					counterclockwise:"7",
+					build:[
+						"  #",
+						"###",
+					],
+				},
+				"&":{
+					color:"#39ff14",
+					clas:"lblock",
+					clockwise:"7",
+					counterclockwise:"L",
+					build:[
+						"###",
+						"#  ",
+					],
+				},
+				"+":{
+					color:"#00ffff",
+					clas:"plusblock",
+					clockwise:"+",
+					counterclockwise:"+",
+					build:[
+						" # ",
+						"###",
+						" # "
+					],
+				},
+				"_":{
+					color:"#FF00FF",
+					clas:"lineblock",
+					clockwise:"|",
+					counterclockwise:"|",
+					build:[
+						"###",
+					],
+				},
+				"|":{
+					color:"#FF00FF",
+					clas:"lineblock",
+					clockwise:"_",
+					counterclockwise:"_",
+					build:[
+						"#",
+						"#",
+						"#",
+					],
+				},
+				"c":{
+					color:"#FFFF33",
+					clas:"cblock",
+					clockwise:"n",
+					counterclockwise:"u",
+					build:[
+						"##",
+						"# ",
+						"##"
+					],
+				},
+				"D":{
+					color:"#FFFF33",
+					clas:"cblock",
+					clockwise:"u",
+					counterclockwise:"n",
+					build:[
+						"##",
+						" #",
+						"##"
+					],
+				},
+				"u":{
+					color:"#FFFF33",
+					clas:"cblock",
+					clockwise:"c",
+					counterclockwise:"D",
+					build:[
+						"# #",
+						"###"
+					],
+				},
+				"n":{
+					color:"#FFFF33",
+					clas:"cblock",
+					clockwise:"D",
+					counterclockwise:"c",
+					build:[
+						"###",
+						"# #"
+					],
+				},
+				"S":{
+					color:"#ff0000",
+					clas:"sblock",
+					clockwise:"s",
+					counterclockwise:"s",
+					build:[
+						"###",
+						"#  ",
+						"###",
+						"  #",
+						"###"
+					],
+				},
+				"s":{
+					color:"#ff0000",
+					clas:"sblock",
+					clockwise:"S",
+					counterclockwise:"S",
+					build:[
+						"# ###",
+						"# # #",
+						"### #"
+					],
+				},
+				"r":{
+					color:"teal",
+					clas:"rblock",
+					clockwise:"f",
+					counterclockwise:"F",
+					build:[
+						"##",
+						"# ",
+					],
+				},
+				"R":{
+					color:"teal",
+					clas:"rblock",
+					clockwise:"F",
+					counterclockwise:"f",
+					build:[
+						" #",
+						"##",
+					],
+				},
+				"f":{
+					color:"teal",
+					clas:"rblock",
+					clockwise:"R",
+					counterclockwise:"r",
+					build:[
+						"##",
+						" #",
+					],
+				},
+				"F":{
+					color:"teal",
+					clas:"rblock",
+					clockwise:"r",
+					counterclockwise:"R",
+					build:[
+						"# ",
+						"##",
+					],
+				},
+				".":{
+					color:"#adadad",
+					clas:"dotblock",
+					clockwise:".",
+					counterclockwise:".",
+					build:[
+						"#",
+					],
+				},
+			},
+			elms={
+			"#":function(x,y,color,clas) {
+				//console.log(arguments);
+				return $("<div class='sprite block outline'>")
+					.css({
+						left :x*4+"em",
+						top:y*4+"em",
+						//borderColor:color,
+						boxShadow:"0 0 .4em "+color,
+						color:color,
+					}).addClass(clas);
+			},
+			"B":function(x,y,color,clas) {
+				//console.log(arguments);
+				return $("<div class='sprite block filled'>")
+					.css({
+						left :(x*4)+.25+"em",
+						top:(y*4)+.25+"em",
+						//background:color,
+						//borderColor:color,
+					}).addClass(clas);
+			},
+			" ":function() {
+				return $();
+			}
+		},
+		level=0,//what index the parts should be gotten from.
+		hand=0,offsetX=0,offsetY=0,handItem,rounded=true;
+		function drawChunk(chunk,X,Y,dropped,isprev) {
+			for (var y=0; y<chunks[chunk].build.length;y++) {
+				for (var x=0; x<chunks[chunk].build[y].length;x++) {
+					if (!dropped&&!isprev) elms[chunks[chunk].build[y][x].replace("#",dropped?"B":"#")](x+X,y+Y,chunks[chunk].color,chunks[chunk].clas).appendTo("#playField");
+					else if(chunks[chunk].build[y][x]=="#"&&!isprev) set(x+X,y+Y,/*chunks[*/chunk/*].color*/);
+					else if(isprev) elms[chunks[chunk].build[y][x].replace("#","B")](x,y,chunks[chunk].color,chunks[chunk].clas).css({
+						fontSize:((chunks[chunk].build.length>chunks[chunk].build[y].length?($("#nextblock").height()/chunks[chunk].build.length):($("#nextblock").width()/chunks[chunk].build[y].length))/4),
+						//left:"++1.5em",
+						//top:"+1.65em",
+						//position:"relative",
+					}).appendTo("#nextblock");
+					if (!rounded) $("*").not(".grid").css("border-radius",0);
+					else {
+						$("#nextblock").css("border-radius","1em");
+						$(".filled").css("border-radius",".7em");
+					}
+				}
+			}
+		};
+		function getGridItem(x,y) {
+			return $('<div class="sprite grid"></div>')
+				.css({
+					left:(x*4)+.3+"em",
+					top:(y*4)+.3+"em",
+				});
+		};
+		function drawGrid() {
+			/*for (var y=0; y<level+2;y++) {
+				for (var x=0; x<level+2;x++) {
+					//getGridItem(x,y).appendTo("#grid");
+				}
+			}*/
+			$("#grid").children().remove();
+			for (var y=0; y<map.length;y++) {
+				for (var x=0; x<map[y].length;x++) {
+					//console.log("\""+map[y][x]+"\"");
+					switch(map[y][x]) {
+						case " ": 
+							//classtoadd+="grid";
+							getGridItem(x,y).appendTo("#grid");
+							break;
+						default: elms["B"](x,y,"",chunks[map[y][x]].clas).appendTo("#grid")//classtoadd+=chunks[map[y][x]].clas+" block filled";
+					}
+					
+				}
+			}
+		}
+		var animationDuration=200;
+		const gamepad = new Gamepad();
+		gamepad.setCustomMapping('keyboard', {
+			'button_1': [32,13],//place
+			'button_4': [67,191],//reset
+			'shoulder_top_left':[90,188],
+			'shoulder_top_right':[88,190],
+			//'start': 27,
+			'd_pad_up': [38, 87],
+			'd_pad_down': [40, 83],
+			'd_pad_left': [37, 65],
+			'd_pad_right': [39, 68]
+		});
+		gamepad.on("press",["d_pad_up","stick_axis_left","stick_axis_right"],function (e) {
+			if (typeof e.value!="undefined"&&e.value[1]>(-.3)) return;
+			$("#playField").css("transform","rotate(0deg)");
+			//console.log(e);
+			//console.log("up");
+			if (offsetY<=0) {
+				$(".outline").finish().effect("bounce",animationDuration);
+				$("#dropfail")[0].currentTime = 0;;
+				$("#dropfail")[0].play();
+				return;
+			}
+			offsetY--;
+			$("#slide")[0].currentTime = 0;;
+			$("#slide")[0].play();
+			$(".outline").finish().animate({top: "-=4em"}, animationDuration,refreshHover);
+		});
+		gamepad.on("press",["d_pad_down","stick_axis_left","stick_axis_right"],function (e) {
+			if (typeof e.value!="undefined"&&e.value[1]<.3) return;
+			$("#playField").css("transform","rotate(0deg)");
+			//console.log("down");
+			if (offsetY>=(map[0].length-chunks[handItem].build.length)) {
+				$(".outline").finish().effect("bounce",animationDuration);
+				$("#dropfail")[0].currentTime = 0;;
+				$("#dropfail")[0].play();
+				return;
+			}
+			offsetY++;
+			$("#slide")[0].currentTime = 0;;
+			$("#slide")[0].play();
+			$(".outline").finish().animate({top: "+=4em"}, animationDuration,refreshHover);
+		});
+		gamepad.on("press",["d_pad_left","stick_axis_left",,"stick_axis_right"],function(e) {
+			if (typeof e.value!="undefined"&&e.value[0]>(-.3)) return;
+			$("#playField").css("transform","rotate(0deg)");
+			//console.log("left");
+			if (offsetX<=0) {
+				$(".outline").finish().effect("shake",animationDuration);
+				$("#dropfail")[0].currentTime = 0;;
+				$("#dropfail")[0].play();
+				return;
+			}
+			offsetX--;
+			$("#slide")[0].currentTime = 0;;
+			$("#slide")[0].play();
+			$(".outline").finish().animate({left: "-=4em"}, animationDuration,refreshHover);
+		});
+		gamepad.on("press",["d_pad_right","stick_axis_left","stick_axis_right"],function (e) {
+			if (typeof e.value!="undefined"&&e.value[0]<.3) return;
+			$("#playField").css("transform","rotate(0deg)");
+			//console.log("right");
+			//console.log(offsetX,map.length,chunks[levels[level][hand]].build[0].length);
+			if (offsetX>=(map.length-chunks[handItem].build[0].length)) {
+				$(".outline").finish().effect("shake",animationDuration);
+				$("#dropfail")[0].currentTime = 0;;
+				$("#dropfail")[0].play();
+				return;
+			}
+			offsetX++;
+			$("#slide")[0].currentTime = 0;;
+			$("#slide")[0].play();
+			$(".outline").finish().animate({left: "+=4em"}, animationDuration,refreshHover);
+		});
+		gamepad.on("press","button_1",function() {
+			for (var y=0; y<chunks[handItem].build.length;y++) {
+				for (var x=0; x<chunks[handItem].build[y].length;x++) {
+					//console.log("OVERLAP? at",x+offsetX,y+offsetY);
+					if (map[y+offsetY][x+offsetX]!=" "&&chunks[handItem].build[y][x]!=" "){
+						//console.log("OVERLAP at",x+offsetX,y+offsetY);
+						//$(".outline").finish().effect("pulse",animationDuration);
+						$("#dropfail")[0].currentTime = 0;;
+						$("#dropfail")[0].play();
+						return;
+					}
+				}
+			}
+			drawChunk(handItem,offsetX,offsetY,true,false);
+			$("#click")[0].currentTime = 0;;
+			$("#click")[0].play();
+			drawGrid();
+			if (hand+2<=levels[level].length) {
+				hand++;
+			}else {
+				hand=0;
+				if(level+2<=levels.length) {
+					level++;
+					$("#lvldisp").text(level+1);
+					resetMap();
+					$(window).resize();
+					drawGrid();
+				}else win();
+			}
+			handItem=levels[level][hand];
+			offsetX=0;
+			offsetY=0;
+			refreshHover();
+			$("#playField").css("transform","rotate(0deg)");
+			//console.log("enter");
+		});
+		gamepad.on("press",["shoulder_top_right","shoulder_bottom_right","stick_button_right"],function() {
+			//console.log("rotateClock");
+			//if (chunks[handItem].build.length>chunks[handItem].build[0].length) offsetX-=Math.floor(chunks[handItem].build.length/2);
+			//else if (chunks[handItem].build.length<chunks[handItem].build[0].length) offsetY-=Math.floor(chunks[handItem].build[0].length/2);
+			if (chunks[handItem].build.length+offsetX>map[0].length) {
+				offsetX-=chunks[handItem].build.length+offsetX-map[0].length;
+			}
+			if (chunks[handItem].build[0].length+offsetY>map.length) {
+				offsetY-=chunks[handItem].build[0].length+offsetY-map.length;
+			}
+			handItem=chunks[handItem].clockwise;
+			refreshHover();
+			$("#rotate")[0].currentTime = 0;;
+			$("#rotate")[0].play();
+			//$("<audio src='Sounds/chord.wav'>")[0].play();
+		});
+		gamepad.on("press",["shoulder_top_left","shoulder_bottom_left","stick_button_left"],function() {
+			//console.log("rotateCounter");
+			if (chunks[handItem].build.length+offsetX>map[0].length) {
+				offsetX-=chunks[handItem].build.length+offsetX-map[0].length;
+			}
+			if (chunks[handItem].build[0].length+offsetY>map.length) {
+				offsetY-=chunks[handItem].build[0].length+offsetY-map.length;
+			}
+			handItem=chunks[handItem].counterclockwise;
+			refreshHover();
+			$("#rotate")[0].currentTime = 0;;
+			$("#rotate")[0].play();
+			//$("<audio src='Sounds/chord.wav'>")[0].play();
+		});
+		gamepad.on("press","button_4",function() {
+			//console.log("restartbtn");
+			$("#restart")[0].currentTime = 0;;
+			$("#restart")[0].play();
+			resetMap();
+			drawGrid();
+			hand=0;
+			handItem=levels[level][hand];
+			offsetX=0;
+			offsetY=0;
+			refreshHover();
+			//$("<audio src='Sounds/chimes.wav'>")[0].play();
+		});
+		function win() {
+			level=0;$(window).resize();
+			$("ui").html($("ui").html()+"<p style=\"color:white;font-family:sans-serif;text-align:center;\">YOU WIN!</p>");
+		}
+		function refreshHover() {
+			$("#playField, #nextblock").children().remove();
+			drawChunk(handItem,offsetX,offsetY,false,false);
+			$("#grid").parent().css({
+						height:((window.innerHeight<window.innerWidth?window.innerHeight:window.innerWidth)*(chunks[handItem].build.length))/map.length,
+						width:((window.innerHeight<window.innerWidth?window.innerHeight:window.innerWidth)*(chunks[handItem].build[0].length))/map[0] .length,
+						position: "absolute",
+						top:0,
+						left:0,
+					});
+			if (hand+1<levels[level].length) drawChunk(levels[level][hand+1],offsetX,offsetY,false,true);
+		}
+		function resetMap() {
+			map=[];
+			for (var y=0; y<level+2;y++) map.push(Array(level+3).join(" "));
+		}
+		function set(x,y,color) {
+			//var old=map[y];
+			map[y]=map[y].slice(0,x)+color+map[y].slice(x+1);
+		}
+		$(function() {
+			var locked=false,x0=null,y0=null,xlast,ylast;
+			$(window).resize(function() {
+				$("#grid, #playField").css("fontSize",(window.innerHeight<window.innerWidth?window.innerHeight:window.innerWidth)/(4.1*(level+2)))
+				$("#ui").css({
+					width:window.innerHeight<=window.innerWidth?window.innerWidth-window.innerHeight:window.innerWidth,
+					height:window.innerHeight>window.innerWidth?window.innerHeight-window.innerWidth:window.innerHeight,
+					//background:"white",
+					//position:"absolute",
+					top:window.innerHeight>window.innerWidth?window.innerWidth:0,
+					left:window.innerHeight<window.innerWidth?window.innerHeight:0,
+				})
+				var w=$("#ui").width(),h=$("#ui").height();
+				$("#nextblock").css({
+					width:(w<h?w:h)/2,
+					height:(w<h?w:h)/2,
+				});
+				$("#nextblock").children().remove();
+				if (hand+1<levels[level].length) drawChunk(levels[level][hand+1],offsetX,offsetY,false,true);
+			}).resize()/*.on("mousedown",function(e) {
+				x0=e.clientX;
+				y0=e.clientY;
+				xlast=0;
+				ylast=0;
+				locked = true;
+			})/*.on("touchstart",function(e) {
+				if (e.changedTouches.length===1) {//only one finger
+					//$(this).trigger("mousedown");
+					x0=e.changedTouches[0].clientX;
+					y0=e.changedTouches[0].clientY;
+					xlast=0;
+					ylast=0;
+					locked = true;
+					//console.log("z",x0,y0);
+				}else console.log(e,e.changedTouches);
+			}).on("mousemove",function(e) {
+				if (!locked) return;
+				//e.preventDefault();
+				//console.log("animate");
+				if(x0 || x0 === 0) {
+					$(".outline").css({
+						"left":"+="+(Math.round(e.clientX - x0)-xlast)+"px",
+						"top":"+="+(Math.round(e.clientY - y0)-ylast)+"px",
+					});
+					xlast=Math.round(e.clientX - x0);
+					ylast=Math.round(e.clientY - y0);
+				}
+			}).on("touchmove",function(e) {
+				if (e.changedTouches.length===1) {//only one finger
+					if (!locked) return;
+					if(x0 || x0 === 0) {
+						$(".outline").css({
+							"left":"+="+(Math.round(e.changedTouches[0].clientX - x0)-xlast)+"px",
+							"top":"+="+(Math.round(e.changedTouches[0].clientY - y0)-ylast)+"px",
+						});
+						xlast=Math.round(e.changedTouches[0].clientX - x0);
+						ylast=Math.round(e.changedTouches[0].clientY - y0);
+					}
+				}else console.log(e,e.changedTouches);
+			}).on("mouseup touchend",function(e) {
+				if(locked) {
+					console.log("snap",Math.round(xlast/$(".outline").width()),Math.round(ylast/$(".outline").height()));
+					var xmove=Math.round(xlast/$(".outline").width()),
+						ymove=Math.round(ylast/$(".outline").height());
+					animationDuration=0;
+					while (xmove>0) {
+						gamepad.trigger("press","d_pad_right");
+						xmove--;
+					}
+					while (xmove<0) {
+						gamepad.trigger("press","d_pad_left");
+						xmove++;
+					}
+					while (ymove>0) {
+						gamepad.trigger("press","d_pad_down");
+						ymove--;
+					}
+					while (ymove<0) {
+						gamepad.trigger("press","d_pad_up");
+						ymove++;
+					}
+					animationDuration=200;
+					refreshHover();
+					x0 = null;
+					y0 = null;
+					locked = false;
+				}
+			});*/
+			window.region = new ZingTouch.Region($("#grid").parent()[0]);
+			var lastTimeS=0,checkedS=0,intv=-1;
+			region.bind($("#grid").parent()[0], 'rotate', function(e) {
+				//var rotatable = this;
+				var n=Math.round(e.detail.distanceFromOrigin/90);
+				while (n>=4) n-=4;
+				while (n<0) n+=4;
+				console.log(e,n);
+				$("#playField").css({
+					transform:'rotate(' + e.detail.distanceFromOrigin + 'deg)',
+					position:"absolute",
+					top:0,
+					left:0,
+				});
+				lastTimeS=e.timeStamp;
+				/*setOutput([
+					['Gesture', 'Rotate'],
+					['angle', Math.floor(e.detail.angle) + "°"],
+					['distanceFromOrigin', Math.floor(e.detail.distanceFromOrigin) + "°"],
+					['distanceFromLast', Math.floor(e.detail.distanceFromLast) + "°"]
+				]);*/
+				if (intv<0) {
+					intv=setInterval(function() {
+						if (checkedS===lastTimeS) console.log("Is it done moving yet?");
+						checkedS=lastTimeS;
+					},1);
+				}
+			});
+			/*
+			function setOutput(data) {
+			  var outputStr = "> ";
+			  for (var i = 0; i < data.length; i++) {
+				outputStr += data[i][0] + ": " + data[i][1] + ((i === data.length - 1) ? '' : ' , ');
+			  }
+			  var output = document.getElementById('output');
+			  console.log(outputStr);
+			  output.innerHTML = outputStr;
+			}*/
+			resetMap();
+			handItem=levels[level][hand];
+			refreshHover();
+			drawGrid();
+			/*$("body").on({"keydown":function(event) {
+				console.log(event);
+			}});//*/
+		});//.replace("#","B")
+		</script>
+	</body>
+</html>
