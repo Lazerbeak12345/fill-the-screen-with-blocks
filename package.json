@@ -1,0 +1,17 @@
+{
+  "name": "fill-the-screen-with-blocks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A puzzle game, developed during my senior year of high school. Comparable to Tetris, but slower, and harder.",
+  "main": "index.html",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lazerbeak12345/fill-the-screen-with-blocks.git"
+  },
+  "author": "Lazerbeak12345",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/Lazerbeak12345/fill-the-screen-with-blocks#readme",
+  "dependencies": {
+    "jquery": "3.6.4"
+  }
+}
